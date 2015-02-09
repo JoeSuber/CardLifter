@@ -1,7 +1,7 @@
 #include <AccelStepper.h>
 #include <Servo.h>
 
-// #defines are macros for faster than digitalWrite() read & write.
+// #defines are macros for faster pin access than built-in digitalWrite().
 //  *http://masteringarduino.blogspot.com/2013/10/fastest-and-smallest-digitalread-and.html
 
 #define portOfPin(P)\
@@ -39,29 +39,34 @@ const byte LIMIT_ARM = 3;
 const byte ONRESERVE = 32;          // max byte length of serial-delivered string
 const byte PROX_PIN = A0;           // Analog prox. sensor Pin for card-stack-top
 const byte CARD_PIN = A1;           // Analog prox. for 'card on-board'
-const int cardThickness = 141;       // 141 steps to lift a card. 608steps/turn
-                                    // (20 turns per 86 cards, 141.3953 ...
-const int proxSense2 = 800;         // threshold for OPB606A riding on fan housing
-const int liftSenseTop = 500;        // above threshold nothing is close to face of OPB606A
+const int cardThickness = 52;       // calculated 141 steps to lift a card. 608steps/turn
+                                     // (20 turns per 86 cards, 141.3953 ...
+const int proxSense2 = 600;         // threshold for OPB606A riding on fan housing
+const int liftSenseTop = 810;        // above threshold nothing is close to face of OPB606A
 const long int hoverArmPos = 5;      // pick up postion after zeroing against armLimit
 const long int firstArmPos = 142;    // experimentally determined drop-off position
 const long int secondArmPos = 280;   // 2nd drop and max Arm travel
-const byte lowAng = 147;              // servo position: closest approach to card-stack
-const byte midAng = 117;              // servo position: move to clear roller
-const byte highAng = 15;              // servo postion:
-const byte bumpBinSteps = 36;        // for jiggle when grabTryCount goes up.
-const byte servoPosition = 50;      // initial safe servo position
+const byte lowAng = 120;              // servo position: closest approach to card-stack
+const byte highAng = 157;              // servo postion:
+const byte bumpBinSteps = 36;        // for jiggle when grabTryCo17unt goes up.
+const byte servoPosition = 145;      // initial setup() safe servo position
+const byte extraServoBump = 3;      // travel either way a little further then settle back to low or high
 int newAnalog1 = 0;                 // hold value from the PROX_PIN sensor 
 int newAnalog2 = 0;                 // hold value from the CARD_PIN sensor
 int oldAnalog1 = 0;                 // discover changes in the PROX_PIN sensor 
 int oldAnalog2 = 0;                 // discover changes in the CARD_PIN sensor
-byte grabTryCount = 0;              // bump the bin to help the grabber             
+long int destinationArmPos = firstArmPos;  // arm drop-off point (first or second)
+byte grabTryCount = 0;              // bump the bin to help the grabber
+byte oldServoPos = servoPosition;    // for tracking changes is servo. Are they continuous?
 String inputString = "";
 boolean LOADED = false;
 boolean ARMZEROED = false;
 boolean BACKINGOFF = false;
+byte restServoPos = servoPosition;    // used for moving servo back off its maximum travel on either end; set in fanDown()
+boolean stressedServo = false;       // flag for above
 unsigned long timeStart = 0;
 unsigned long timeCurrent = 0;
+boolean UPDATE = true;              // flag for printing updated info to serial monitor
 
 AccelStepper stepperArm(AccelStepper::DRIVER, PINST1_ST, PINST1_DIR);
 AccelStepper stepperLift(AccelStepper::DRIVER, PINST2_ST, PINST2_DIR);
@@ -73,7 +78,7 @@ Servo myserv;
 
 volatile byte liftState = LOW;
 volatile byte armState = LOW;
-volatile boolean UPDATE = true;            // flag for printing updated info
+
 
 void setup()
 {  
@@ -98,9 +103,6 @@ void setup()
     digitalLow(holdPinArm);                 // HIGH disables driver, LOW enables
     digitalLow(holdPinLift);                // HIGH disables driver, LOW enables
      
-    // glow red when any stepper is enabled: 
-    // digitalWrite(REDLED, (!digitalState(holdPinArm)) | (!digitalState(holdPinLift)));  
-    
     Serial.begin(115200);
     inputString.reserve(ONRESERVE);
     Serial.println("Setup: liftLimit Switch is " + String(digitalState(LIMIT_SW)) + "\n");
@@ -108,7 +110,7 @@ void setup()
     Serial.println("A0: " + String(analogRead(PROX_PIN)));
     Serial.println("A1: " + String(analogRead(CARD_PIN)));
     stepperLift.moveTo(liftUpToTop);
-    stepperArm.moveTo(-1023);
+    stepperArm.moveTo(-10234);    // should get Arm to limit-switch under any starting circumstance
     timeStart = millis();
     timeCurrent = millis();
 }
@@ -132,7 +134,7 @@ void loop() {
         liftState = LOW;
       }
     }
-    else if ((!liftState) && ((timeStart - millis()) > 1900))    // deals with switch hysterysis
+    else if ((!liftState) && ((timeStart - millis()) > 1900))    // deals with limit-switch hysterysis
       BACKINGOFF = false;
     else if ((liftState == HIGH) && (!BACKINGOFF)) {          // stopping for unforseen reasons
       delay(4);                                               // de-bounce
@@ -158,7 +160,8 @@ void loop() {
     newAnalog1 = analogRead(PROX_PIN);
     newAnalog2 = analogRead(CARD_PIN);
     
-    fanDown(lowAng, midAng, highAng, firstArmPos);      // auto-servo position based on bin and sensor threshold
+    // auto-servo position based on bin and sensor threshold
+    fanDown(lowAng, highAng, destinationArmPos);      
     
     // loading by default, so moving down, one card at a time
     if (!LOADED){
@@ -175,40 +178,63 @@ void loop() {
     else if ((grabTryCount % 5) == 4)
         stepperLift.moveTo(stepperLift.currentPosition() + cardThickness);
         
-    // track the analog sensors avoiding flutter values  
-    if (abs(oldAnalog1 - newAnalog1) > 40) {
+    // TRACKING via SERIAL MONITOR without flooding it
+    // analog sensors avoiding flutter values
+   // comment out once everything is working perfectly 
+    if (abs(oldAnalog1 - newAnalog1) > 30) {
       UPDATE = true;
       oldAnalog1 = newAnalog1;
-      //myserv.write(map(newAnalog1, 0, 1023, 40, 135));  // servo won't be slaved here unless testing
     }
-    if (abs(oldAnalog2 - newAnalog2) > 40) {
-      UPDATE = true;
-      oldAnalog2 = newAnalog2;
-    }
+    else if (abs(oldAnalog2 - newAnalog2) > 30)
     
-    stepperLift.run();
-    stepperArm.run();
-
     if (UPDATE) {
         Serial.print("Liftpos: " + String(stepperLift.currentPosition()) + " Armpos: " + String(stepperArm.currentPosition()));
         Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(myserv.read()));
         UPDATE = false;
     }
+    
+    stepperLift.run();
+    stepperArm.run(); {
+      UPDATE = true;
+      oldAnalog2 = newAnalog2;
+    }
+    else if (abs(myserv.read() - oldServoPos) > 2) {
+      UPDATE = true;
+      oldServoPos = myserv.read();
+    }
+    
+    if (UPDATE) {
+        Serial.print("Liftpos: " + String(stepperLift.currentPosition()) + " Armpos: " + String(stepperArm.currentPosition()));
+        Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(myserv.read()));
+        UPDATE = false;
+    }
+    
+    stepperLift.run();
+    stepperArm.run();
      
     // first character sent switches us into LOADED mode
     // 97="a", 98="b", 99="c", 100="d"                                
     if (Serial.available() > 0) {        
       inputString = String(Serial.read());
-      LOADED = true;        
+      if (!LOADED) {
+        LOADED = true;
+        stepperLift.setCurrentPosition(0);
+        UPDATE = true;
+      }        
       Serial.println("Rx: " + inputString);
-      if (inputString == "97")
+      if (inputString == "97")               // 'a' hover over input stack
         stepperArm.moveTo(hoverArmPos);
-      else if (inputString == "98")
+      else if (inputString == "98") {        // 'b' ID'd pile
         stepperArm.moveTo(firstArmPos);
-      else if (inputString == "99")
+        destinationArmPos = firstArmPos;
+      }
+      else if (inputString == "99") {        // 'c' unidentified pile
         stepperArm.moveTo(secondArmPos);
-      else if (inputString == "100") {       // Reset into loading mode until another character sent
+        destinationArmPos = firstArmPos;
+      }
+      else if (inputString == "100") {       // 'd' Reset into loading mode until another character sent
         stepperArm.moveTo(firstArmPos);
+        destinationArmPos = firstArmPos;
         LOADED = false;
       }
       inputString = "";
@@ -226,23 +252,28 @@ void limitArm() {
 }
 
 // trying for non-blocking servo with delay between actuation attempts...
-void fanDown(byte down, byte mid, byte drop, long int dropZone) {
+void fanDown(byte down, byte drop, long int dropZone) {
   // go down to get card only if stopped in hover position over bin
-  if ((millis() - timeStart) > 800){ 
-    if ((newAnalog2 > liftSenseTop) && (stepperArm.currentPosition() == hoverArmPos)) {
-      myserv.write(down);
+  
+  if (!stressedServo && ((millis() - timeStart) > 700)){ 
+    if ((stepperArm.currentPosition() == hoverArmPos) && (newAnalog2 > proxSense2)) {
+      myserv.write(down - extraServoBump);
+      restServoPos = down;
+      stressedServo = true;
       timeStart = millis();
       grabTryCount += 1;
     }
     else if ((stepperArm.currentPosition() == dropZone) && (newAnalog2 < proxSense2)) {
-      myserv.write(drop);
+      myserv.write(drop + extraServoBump);
+      restServoPos = drop;
+      stressedServo = true;
       timeStart = millis();
       grabTryCount = 0;
     }
-    else if (myserv.read() != mid) {
-      myserv.write(mid);
-      timeStart = millis();
-    }
+  }
+  else if (stressedServo && ((millis() - timeStart) > 600)) {
+    myserv.write(restServoPos);
+    stressedServo = false;
   }
 }
 
