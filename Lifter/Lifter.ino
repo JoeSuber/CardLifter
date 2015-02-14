@@ -41,16 +41,16 @@ const byte PROX_PIN = A0;           // Analog prox. sensor Pin for card-stack-to
 const byte CARD_PIN = A1;           // Analog prox. for 'card on-board'
 const int cardThickness = 52;       // calculated 141 steps to lift a card. 608steps/turn
                                      // (20 turns per 86 cards, 141.3953 ...
-const int proxSense2 = 600;         // threshold for OPB606A riding on fan housing
-const int liftSenseTop = 810;        // above threshold nothing is close to face of OPB606A
-const long int hoverArmPos = 5;      // pick up postion after zeroing against armLimit
-const long int firstArmPos = 142;    // experimentally determined drop-off position
-const long int secondArmPos = 280;   // 2nd drop and max Arm travel
-const byte lowAng = 120;              // servo position: closest approach to card-stack
-const byte highAng = 157;              // servo postion:
+const int proxSense2 = 750;         // threshold for OPB606A riding on fan housing
+const int liftSenseTop = 700;        // above threshold nothing is close to face of OPB606A
+const long int hoverArmPos = 18;      // pick up postion after zeroing against armLimit
+const long int firstArmPos = 148;    // experimentally determined drop-off position
+const long int secondArmPos = 300;   // 2nd drop and max Arm travel
+const byte closeAng = 117;              // servo position: closest approach to card-stack
+const byte openAng = 165;              // servo postion:
 const byte bumpBinSteps = 36;        // for jiggle when grabTryCo17unt goes up.
-const byte servoPosition = 145;      // initial setup() safe servo position
-const byte extraServoBump = 3;      // travel either way a little further then settle back to low or high
+const byte servoPosition = 137;      // initial setup() safe servo position & middle return
+const byte extraServoBump = 8;      // travel either way a little further then settle back to low or high
 int newAnalog1 = 0;                 // hold value from the PROX_PIN sensor 
 int newAnalog2 = 0;                 // hold value from the CARD_PIN sensor
 int oldAnalog1 = 0;                 // discover changes in the PROX_PIN sensor 
@@ -66,13 +66,15 @@ byte restServoPos = servoPosition;    // used for moving servo back off its maxi
 boolean stressedServo = false;       // flag for above
 unsigned long timeStart = 0;
 unsigned long timeCurrent = 0;
-boolean UPDATE = true;              // flag for printing updated info to serial monitor
+boolean UPDATE = true;                  // flag for printing updated info to serial monitor
+unsigned long currentTime = millis();  // I can't seem to declare local variables
+byte currentServoPos = 0;              
 
 AccelStepper stepperArm(AccelStepper::DRIVER, PINST1_ST, PINST1_DIR);
 AccelStepper stepperLift(AccelStepper::DRIVER, PINST2_ST, PINST2_DIR);
 
 const long int liftUpToTop = -200000;     // arbitrary rise until limit switch hit.
-const int liftBackOff = 500;              // back off the switch; zero is limit-switch position
+long int liftBackOff = 500;              // back off the switch; zero is limit-switch position
 
 Servo myserv;
 
@@ -116,34 +118,32 @@ void setup()
 }
 
 void loop() {
+    /*
     if (DEBUG) {  
       digitalWrite(GREENLED, digitalState(LIMIT_SW));     // glow when free. in loop 
       digitalWrite(REDLED, digitalState(LIMIT_ARM));      // glow when free. in loop
     }
+    */
     
     // only handles limiting if bin is mostly empty
-    if ((liftState == HIGH) && (stepperLift.targetPosition() < 0)) {
-      delay(5);                                    // de-bounce the switch hopefully
+    if ((liftState == HIGH) && !BACKINGOFF) {
+      delay(3);                             // de-bounce the switch hopefully
       if (digitalState(LIMIT_SW)) {
         stepperLift.setCurrentPosition(0);
-        delay(3);                                 // deceleration 
         stepperLift.moveTo(liftBackOff);
         BACKINGOFF = true;
-        timeStart = millis();
         UPDATE = true;
         liftState = LOW;
       }
     }
-    else if ((!liftState) && ((timeStart - millis()) > 1900))    // deals with limit-switch hysterysis
+    else if (BACKINGOFF && !liftState) {   // deals with limit-switch hysterysis
       BACKINGOFF = false;
-    else if ((liftState == HIGH) && (!BACKINGOFF)) {          // stopping for unforseen reasons
-      delay(4);                                               // de-bounce
-      if (digitalState(LIMIT_SW)) {
-        stepperLift.stop();                                  // stop at maximum deceleration
-        UPDATE = true;                                      // report position
-        liftState = LOW;
-      }
+      liftBackOff = stepperLift.currentPosition();
+      if (liftBackOff < 1)
+        Serial.println("WARNING  WARNING  error with liftBackOff");
+      stepperLift.setCurrentPosition(0);
     }
+      
     
     // arm starts off moving towards limit switch in setup(), hits it, moves to ready-to-load         
     if ((armState == HIGH) && (stepperArm.targetPosition() < 0)){
@@ -161,23 +161,19 @@ void loop() {
     newAnalog2 = analogRead(CARD_PIN);
     
     // auto-servo position based on bin and sensor threshold
-    fanDown(lowAng, highAng, destinationArmPos);      
+    fanDown(closeAng, openAng, destinationArmPos);      
     
     // loading by default, so moving down, one card at a time
+    // newAnalog1 < senseTop means 'covered'  newAnalog1 >... is 'uncovered'
     if (!LOADED){
       if ((newAnalog1 < liftSenseTop) && (stepperLift.distanceToGo() < cardThickness)) {
         stepperLift.moveTo(stepperLift.currentPosition() + cardThickness);
       }
     }
     // loaded? Then move upwards a little bit
-    else if ((newAnalog1 > liftSenseTop) && (stepperLift.distanceToGo() < 1)) {
+    else if ((newAnalog1 > liftSenseTop) && (stepperLift.distanceToGo() < 1))
         stepperLift.moveTo(stepperLift.currentPosition() - cardThickness);
-    }
-    else if ((grabTryCount % 5) == 2)
-        stepperLift.moveTo(stepperLift.currentPosition() - cardThickness);
-    else if ((grabTryCount % 5) == 4)
-        stepperLift.moveTo(stepperLift.currentPosition() + cardThickness);
-        
+ 
     // TRACKING via SERIAL MONITOR without flooding it
     // analog sensors avoiding flutter values
    // comment out once everything is working perfectly 
@@ -185,32 +181,25 @@ void loop() {
       UPDATE = true;
       oldAnalog1 = newAnalog1;
     }
-    else if (abs(oldAnalog2 - newAnalog2) > 30)
-    
-    if (UPDATE) {
-        Serial.print("Liftpos: " + String(stepperLift.currentPosition()) + " Armpos: " + String(stepperArm.currentPosition()));
-        Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(myserv.read()));
-        UPDATE = false;
-    }
-    
-    stepperLift.run();
-    stepperArm.run(); {
+    else if (abs(oldAnalog2 - newAnalog2) > 30) {
       UPDATE = true;
       oldAnalog2 = newAnalog2;
     }
-    else if (abs(myserv.read() - oldServoPos) > 2) {
+        
+    if (abs(myserv.read() - oldServoPos) > 1) {
       UPDATE = true;
       oldServoPos = myserv.read();
     }
-    
+        
     if (UPDATE) {
         Serial.print("Liftpos: " + String(stepperLift.currentPosition()) + " Armpos: " + String(stepperArm.currentPosition()));
-        Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(myserv.read()));
+        Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(oldServoPos) + " tm:" + String(millis()));
         UPDATE = false;
     }
     
-    stepperLift.run();
-    stepperArm.run();
+    if (!digitalState(LIMIT_SW) || BACKINGOFF)
+      stepperLift.run();
+    stepperArm.run(); 
      
     // first character sent switches us into LOADED mode
     // 97="a", 98="b", 99="c", 100="d"                                
@@ -230,7 +219,7 @@ void loop() {
       }
       else if (inputString == "99") {        // 'c' unidentified pile
         stepperArm.moveTo(secondArmPos);
-        destinationArmPos = firstArmPos;
+        destinationArmPos = secondArmPos;
       }
       else if (inputString == "100") {       // 'd' Reset into loading mode until another character sent
         stepperArm.moveTo(firstArmPos);
@@ -251,29 +240,42 @@ void limitArm() {
   armState = digitalState(LIMIT_ARM);
 }
 
-// trying for non-blocking servo with delay between actuation attempts...
-void fanDown(byte down, byte drop, long int dropZone) {
+// trying for non-blocking non-repetitive servo with delay between actuation attempts...
+void fanDown(byte suck, byte drop, long int dropZone) {
   // go down to get card only if stopped in hover position over bin
+  currentTime = millis();
+  currentServoPos = myserv.read();
   
-  if (!stressedServo && ((millis() - timeStart) > 700)){ 
-    if ((stepperArm.currentPosition() == hoverArmPos) && (newAnalog2 > proxSense2)) {
-      myserv.write(down - extraServoBump);
-      restServoPos = down;
+  // after allowing time for travel, check stress levels...
+  if (((timeStart - currentTime) > 900)) {
+    if (currentServoPos == (drop + extraServoBump)) {
       stressedServo = true;
-      timeStart = millis();
-      grabTryCount += 1;
-    }
-    else if ((stepperArm.currentPosition() == dropZone) && (newAnalog2 < proxSense2)) {
-      myserv.write(drop + extraServoBump);
       restServoPos = drop;
-      stressedServo = true;
-      timeStart = millis();
-      grabTryCount = 0;
     }
-  }
-  else if (stressedServo && ((millis() - timeStart) > 600)) {
+    else if (currentServoPos == (suck - extraServoBump)) {
+      restServoPos = suck;
+      stressedServo = true;
+    }
+    else if ((currentServoPos == suck) || (currentServoPos == drop))
+      stressedServo = false;
+  } 
+  
+  if ((stepperArm.currentPosition() == hoverArmPos) && 
+      (newAnalog2 > proxSense2) && 
+      !stressedServo) {
+        myserv.write(drop + extraServoBump);
+        timeStart = currentTime;
+    }
+  else if ((stepperArm.currentPosition() == dropZone) && 
+            (newAnalog2 < proxSense2) &&
+            !stressedServo) {
+              myserv.write(suck - extraServoBump);
+              timeStart = currentTime;
+   }
+  else if (stressedServo && ((timeStart - currentTime) > 900)) {
     myserv.write(restServoPos);
-    stressedServo = false;
+    if (DEBUG)
+      Serial.println("de-stressed to position: " + String(restServoPos));
   }
 }
 
