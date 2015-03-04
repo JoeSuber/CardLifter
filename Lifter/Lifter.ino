@@ -43,15 +43,15 @@ const byte flutterConst = 36;       // analog sensors must change more than this
 const int cardThickness = 52;       // calculated 141 steps to lift a card. 608steps/turn
                                      // (20 turns per 86 cards, 141.3953 ...
 const int proxSense2 = 620;         // threshold for OPB606A riding on fan housing
-const int liftSenseTop = 820;        // above threshold nothing is close to face of OPB606A
+const int liftSenseTop = 740;        // above threshold nothing is close to face of OPB606A
 const long int hoverArmPos = 15;      // pick up postion after zeroing against armLimit
 const long int firstArmPos = 120;    // experimentally determined drop-off position
 const long int secondArmPos = 220;   // 2nd drop and max Arm travel
-const byte closeAng = 105;              // servo position: closest approach to card-stack
-const byte openAng = 165;              // servo postion:
-const byte bumpBinSteps = 36;        // for jiggle when grabTryCo17unt goes up.
+const byte closeAng = 115;              // servo position: closest approach to card-stack
+const byte openAng = 158;              // servo postion:
+const byte bumpBinSteps = 36;        // for jiggle when grabTryCount goes up.
 const byte servoPosition = 130;      // initial setup() safe servo position & middle return
-const byte extraServoBump = 12;      // travel either way a little further then settle back to low or high
+const byte extraServoBump = 22;      // travel either way a little further then settle back to low or high
 int newAnalog1 = 0;                 // hold value from the PROX_PIN sensor 
 int newAnalog2 = 0;                 // hold value from the CARD_PIN sensor
 int oldAnalog1 = 0;                 // discover changes in the PROX_PIN sensor 
@@ -148,10 +148,9 @@ void loop() {
     
     // arm starts off moving towards limit switch in setup(), hits it, moves to ready-to-load         
     if ((armState == HIGH) && (stepperArm.targetPosition() < 0)){
-      delay(4);                                  // de-bounce the switch hopefully
+      delay(2);                                  // de-bounce the switch hopefully
       if (digitalState(LIMIT_ARM)) {
         stepperArm.setCurrentPosition(0);
-        delay(3);                             // deceleration allowance
         stepperArm.moveTo(firstArmPos);
         UPDATE = true;
         armState = LOW;
