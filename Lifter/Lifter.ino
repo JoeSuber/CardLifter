@@ -39,10 +39,11 @@ const byte LIMIT_ARM = 3;
 const byte ONRESERVE = 32;          // max byte length of serial-delivered string
 const byte PROX_PIN = A0;           // Analog prox. sensor Pin for card-stack-top
 const byte CARD_PIN = A1;           // Analog prox. for 'card on-board'
+const byte flutterConst = 36;       // analog sensors must change more than this to update serial monitor
 const int cardThickness = 52;       // calculated 141 steps to lift a card. 608steps/turn
                                      // (20 turns per 86 cards, 141.3953 ...
-const int proxSense2 = 650;         // threshold for OPB606A riding on fan housing
-const int liftSenseTop = 750;        // above threshold nothing is close to face of OPB606A
+const int proxSense2 = 620;         // threshold for OPB606A riding on fan housing
+const int liftSenseTop = 820;        // above threshold nothing is close to face of OPB606A
 const long int hoverArmPos = 15;      // pick up postion after zeroing against armLimit
 const long int firstArmPos = 120;    // experimentally determined drop-off position
 const long int secondArmPos = 220;   // 2nd drop and max Arm travel
@@ -177,16 +178,15 @@ void loop() {
     // TRACKING via SERIAL MONITOR without flooding it
     // analog sensors avoiding flutter values
    // comment out once everything is working perfectly 
-    if (abs(oldAnalog1 - newAnalog1) > 30) {
+    if (abs(oldAnalog1 - newAnalog1) > flutterConst) {
       UPDATE = true;
       oldAnalog1 = newAnalog1;
     }
-    else if (abs(oldAnalog2 - newAnalog2) > 30) {
+    else if (abs(oldAnalog2 - newAnalog2) > flutterConst) {
       UPDATE = true;
       oldAnalog2 = newAnalog2;
-    }
-        
-    if (abs(myserv.read() - oldServoPos) > 1) {
+    }    
+    else if (abs(myserv.read() - oldServoPos) > 1) {
       UPDATE = true;
       oldServoPos = myserv.read();
     }
@@ -247,7 +247,7 @@ void fanDown(byte suck, byte drop, long int dropZone) {
   currentServoPos = myserv.read();
   
   // after allowing time for travel, check stress levels...
-  if (((timeStart - currentTime) > 900)) {
+  if (((currentTime - timeStart) > 900)) {
     if (currentServoPos == (drop + extraServoBump)) {
       stressedServo = true;
       restServoPos = drop;
