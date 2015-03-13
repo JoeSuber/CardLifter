@@ -129,7 +129,7 @@ void loop() {
     
     // only handles limiting if bin is mostly empty
     if ((liftState == HIGH) && !BACKINGOFF) {
-      delay(3);                             // de-bounce the switch hopefully
+      delay(3);                                 // de-bounce the switch hopefully
       if (digitalState(LIMIT_SW)) {
         stepperLift.setCurrentPosition(0);
         stepperLift.moveTo(liftBackOff);
@@ -138,7 +138,7 @@ void loop() {
         liftState = LOW;
       }
     }
-    else if (BACKINGOFF && !liftState) {   // deals with limit-switch hysterysis
+    else if (BACKINGOFF && !liftState) {        // deals with limit-switch hysterysis
       BACKINGOFF = false;
       liftBackOff = stepperLift.currentPosition();
       if (liftBackOff < 1)
@@ -149,7 +149,7 @@ void loop() {
     
     // arm starts off moving towards limit switch in setup(), hits it, moves to ready-to-load         
     if ((armState == HIGH) && (stepperArm.targetPosition() < 0)){
-      delay(2);                                  // de-bounce the switch hopefully
+      delay(7);                                  // de-bounce the switch hopefully
       if (digitalState(LIMIT_ARM)) {
         stepperArm.setCurrentPosition(0);
         stepperArm.moveTo(firstArmPos);
