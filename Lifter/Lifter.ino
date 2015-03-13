@@ -22,53 +22,54 @@
 #define isLow(P)((*(pinOfPin(P))& pinMask(P))==0)
 #define digitalState(P)((uint8_t)isHigh(P))
 
-const boolean DEBUG = true;             // send stuff to serial monitor for testing
+const boolean DEBUG = true;                 // send stuff to serial monitor for testing
 
-const byte ledPin = 13;                 // on board LED
-const byte holdPinArm = 12;             // enable pins for stepper drivers
-const byte holdPinLift = 11;            // HIGH->disable, LOW->enables
-const byte SERV1PIN = 10;               // servo control pin
+const byte ledPin = 13;                     // on board LED
+const byte holdPinArm = 12;                 // enable pins for stepper drivers
+const byte holdPinLift = 11;                // HIGH->disable, LOW->enables
+const byte SERV1PIN = 10;                   // servo control pin
 const byte PINST1_ST = 6;          
 const byte PINST1_DIR = 7;
 const byte PINST2_ST = 4;
 const byte PINST2_DIR = 5;
 const byte REDLED = 9;
 const byte GREENLED = 8;
-const byte LIMIT_SW = 2;                // should be a hardware interrupt pin
+const byte LIMIT_SW = 2;                    // should be a hardware interrupt pin
 const byte LIMIT_ARM = 3;     
-const byte ONRESERVE = 32;              // max byte length of serial-delivered string
-const byte PROX_PIN = A0;               // Analog prox. sensor Pin for card-stack-top
-const byte CARD_PIN = A1;               // Analog prox. for 'card on-board'
-const byte flutterConst = 36;           // analog sensors must change more than this to update serial monitor
-const int cardThickness = 52;           // calculated 141 steps to lift a card. 608steps/turn
-                                        // (20 turns per 86 cards, 141.3953 ...
-const int proxSense2 = 620;             // threshold for OPB606A showing a card riding on fan housing
-const int proxSense3 = 900;             // below this a passenger card is still engaged
-const int liftSenseTop = 740;           // above threshold nothing is close to face of OPB606A
-const long int hoverArmPos = 15;        // pick up postion after zeroing against armLimit
-const long int firstArmPos = 120;       // experimentally determined drop-off position
-const long int secondArmPos = 220;      // 2nd drop (less frequent) and max Arm travel
-const byte closeAng = 115;              // servo position: closest approach to card-stack
-const byte openAng = 158;               // servo postion:
-const byte bumpBinSteps = 36;           // for jiggle when grabTryCount goes up.
-const byte servoPosition = 130;         // initial setup() safe servo position & middle return
-const byte extraServoBump = 22;         // travel either way a little further then settle back to low or high
-int newAnalog1 = 0;                     // hold value from the PROX_PIN sensor
-int newAnalog2 = 0;                     // hold value from the CARD_PIN sensor
-int oldAnalog1 = 0;                     // discover changes in the PROX_PIN sensor
-int oldAnalog2 = 0;                     // discover changes in the CARD_PIN sensor
-long int destinationArmPos = firstArmPos;  // arm drop-off point (first or second)
-byte grabTryCount = 0;                  // bump the bin to help the grabber
-byte oldServoPos = servoPosition;       // for tracking changes is servo. Are they continuous?
+const byte ONRESERVE = 32;                  // max byte length of serial-delivered string
+const byte PROX_PIN = A0;                   // Analog prox. sensor Pin for card-stack-top
+const byte CARD_PIN = A1;                   // Analog prox. for 'card on-board'
+const byte flutterConst = 36;               // analog sensors must change more than this to update serial monitor
+const int cardThickness = 52;               // calculated 141 steps to lift a card. 608steps/turn
+                                            // (20 turns per 86 cards, 141.3953 ...
+const int proxSense2 = 620;                 // threshold for OPB606A showing a card riding on fan housing
+const int proxSense3 = 900;                 // below this a passenger card is still engaged
+const int liftSenseTop = 740;               // above threshold nothing is close to face of OPB606A
+const long int hoverArmPos = 15;            // pick up postion after zeroing against armLimit
+const long int firstArmPos = 120;           // experimentally determined drop-off position
+const long int secondArmPos = 220;          // 2nd drop (less frequent) and max Arm travel
+const byte closeAng = 115;                  // servo position: closest approach to card-stack
+const byte openAng = 158;                   // servo postion:
+const byte bumpBinSteps = 36;               // for jiggle when grabTryCount goes up.
+const byte servoPosition = 130;             // initial setup() safe servo position & middle return
+const byte extraServoBump = 22;             // travel either way a little further then settle back to low or high
+int newAnalog1 = 0;                         // hold value from the PROX_PIN sensor
+int newAnalog2 = 0;                         // hold value from the CARD_PIN sensor
+int oldAnalog1 = 0;                         // discover changes in the PROX_PIN sensor
+int oldAnalog2 = 0;                         // discover changes in the CARD_PIN sensor
+long int destinationArmPos = firstArmPos;   // arm drop-off point (first or second)
+byte grabTryCount = 0;                      // bump the bin to help the grabber
+byte oldServoPos = servoPosition;           // for tracking changes is servo. Are they continuous?
 String inputString = "";
 boolean LOADED = false;
 boolean BACKINGOFF = false;
-byte restServoPos = servoPosition;    // used for moving servo back off its maximum travel on either end; set in fanDown()
-boolean stressedServo = false;       // flag for above
+byte restServoPos = servoPosition;      // used for moving servo back off its maximum travel on either end;
+                                        //set in fanDown()
+boolean stressedServo = false;          // flag for above
 unsigned long timeStart = 0;
 unsigned long timeCurrent = 0;
 boolean UPDATE = true;                  // flag for printing updated info to serial monitor
-unsigned long currentTime = millis();  // I can't seem to declare local variables
+unsigned long currentTime = millis();   // I can't seem to declare local variables
 byte currentServoPos = 0;              
 
 AccelStepper stepperArm(AccelStepper::DRIVER, PINST1_ST, PINST1_DIR);
