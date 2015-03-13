@@ -251,30 +251,31 @@ void fanDown(byte suck, byte drop, long int dropZone) {
   // after allowing time for travel, check stress levels...
   if (((currentTime - timeStart) > 900)) {
     if (currentServoPos == (drop + extraServoBump)) {
-      stressedServo = true;
-      restServoPos = drop;
+        restServoPos = drop;
+        stressedServo = true;
+
     }
     else if (currentServoPos == (suck - extraServoBump)) {
-      restServoPos = suck;
-      stressedServo = true;
+        restServoPos = suck;
+        stressedServo = true;
     }
     else if ((currentServoPos == suck) || (currentServoPos == drop))
-      stressedServo = false;
+        stressedServo = false;
   } 
   
-  if ((stepperArm.currentPosition() == hoverArmPos) && 
+  if ((stepperArm.currentPosition() == hoverArmPos) &&      // pick-up
       (newAnalog2 > proxSense2) && 
       !stressedServo) {
         myserv.write(drop + extraServoBump);
         timeStart = currentTime;
    }
-  else if ((stepperArm.currentPosition() == dropZone) && 
+  else if ((stepperArm.currentPosition() == dropZone) &&    // drop-off
             (newAnalog2 < proxSense3 ) &&
             !stressedServo) {
               myserv.write(suck - extraServoBump);
               timeStart = currentTime;
    }
-  else if (stressedServo && ((timeStart - currentTime) > 900)) {
+  else if (stressedServo && ((currentTime - timeStart) > 900)) {
     myserv.write(restServoPos);
     if (DEBUG)
       Serial.println("de-stressed to position: " + String(restServoPos));
