@@ -253,7 +253,6 @@ void fanDown(byte suck, byte drop, long int dropZone) {
     if (currentServoPos == (drop + extraServoBump)) {
         restServoPos = drop;
         stressedServo = true;
-
     }
     else if (currentServoPos == (suck - extraServoBump)) {
         restServoPos = suck;
@@ -278,7 +277,9 @@ void fanDown(byte suck, byte drop, long int dropZone) {
   else if (stressedServo && ((currentTime - timeStart) > 900)) {
     myserv.write(restServoPos);
     if (DEBUG)
-      Serial.println("de-stressed to position: " + String(restServoPos));
+      Serial.println("go to resting spot: " + String(restServoPos));
+    Serial.println("READY")
+    Serial.println("at " + String(
   }
 }
 
