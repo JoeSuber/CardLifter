@@ -22,7 +22,7 @@
 #define isLow(P)((*(pinOfPin(P))& pinMask(P))==0)
 #define digitalState(P)((uint8_t)isHigh(P))
 
-const boolean DEBUG = true;                 // send stuff to serial monitor for testing
+boolean DEBUG = true;                 // send stuff to serial monitor for testing
 
 const byte ledPin = 13;                     // on board LED
 const byte holdPinArm = 12;                 // enable pins for stepper drivers
@@ -227,6 +227,10 @@ void loop() {
         destinationArmPos = firstArmPos;
         LOADED = false;
       }
+      else if (inputString == "120") {
+        DEBUG = !DEBUG;
+        Serial.println("DEBUG <x> is: " + String(DEBUG));
+      }
       inputString = "";
     }    
 } //end void-loop
@@ -277,8 +281,8 @@ void fanDown(byte suck, byte drop, long int dropZone) {
     myserv.write(restServoPos);
     if (DEBUG)
       Serial.println("go to resting spot: " + String(restServoPos));
-    Serial.println("READY")
-    Serial.println("at " + String(stepperArm.currentPosition());
+    Serial.println("READY");
+    Serial.println("at " + String(stepperArm.currentPosition()));
   }
 }
 
