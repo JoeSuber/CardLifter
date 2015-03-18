@@ -22,7 +22,7 @@
 #define isLow(P)((*(pinOfPin(P))& pinMask(P))==0)
 #define digitalState(P)((uint8_t)isHigh(P))
 
-boolean DEBUG = true;                 // send stuff to serial monitor for testing
+boolean DEBUG = false;                      // send stuff to serial monitor for testing
 
 const byte ledPin = 13;                     // on board LED
 const byte holdPinArm = 12;                 // enable pins for stepper drivers
@@ -90,7 +90,7 @@ void setup()
     myserv.attach(SERV1PIN); 
     myserv.write(servoPosition);
     
-    stepperLift.setMaxSpeed(1300.0);
+    stepperLift.setMaxSpeed(1400.0);
     stepperLift.setAcceleration(900.0);
     stepperArm.setMaxSpeed(1400.0);
     stepperArm.setAcceleration(700.0);
@@ -174,7 +174,7 @@ void loop() {
         stepperLift.moveTo(stepperLift.currentPosition() + cardThickness);
       }
     }
-    else if ((newAnalog1 > liftSenseTop) && (stepperLift.distanceToGo() < 1))
+    else if ((newAnalog1 > liftSenseTop) && (stepperLift.distanceToGo() == 0))
         stepperLift.moveTo(stepperLift.currentPosition() - cardThickness);
  
     // TRACKING via SERIAL MONITOR without flooding it
@@ -213,8 +213,10 @@ void loop() {
         UPDATE = true;
       }        
       Serial.println("Rx: " + inputString);
-      if (inputString == "97")               // 'a' hover over input stack
+      if (inputString == "97") {              // 'a' hover over input stack
         stepperArm.moveTo(hoverArmPos);
+        stepperLift.moveTo(stepperLift.currentPosition() - 20);          
+      }
       else if (inputString == "98") {        // 'b' ID'd pile
         stepperArm.moveTo(firstArmPos);
         destinationArmPos = firstArmPos;
