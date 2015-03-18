@@ -193,7 +193,6 @@ void loop() {
     }
         
     if (UPDATE) {
-        Serial.print
         Serial.print("Liftpos: " + String(stepperLift.currentPosition()) + " Armpos: " + String(stepperArm.currentPosition()));
         Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(oldServoPos) + " tm:" + String(millis()));
         UPDATE = false;
@@ -279,7 +278,7 @@ void fanDown(byte suck, byte drop, long int dropZone) {
     if (DEBUG)
       Serial.println("go to resting spot: " + String(restServoPos));
     Serial.println("READY")
-    Serial.println("at " + String(
+    Serial.println("at " + String(stepperArm.currentPosition());
   }
 }
 
