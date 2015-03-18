@@ -278,7 +278,7 @@ void fanDown(byte suck, byte drop, long int dropZone) {
     if (DEBUG)
       Serial.println("go to resting spot: " + String(restServoPos));
     Serial.println("READY");
-    Serial.println("at " + String(stepperArm.currentPosition());
+    Serial.println("at " + String(stepperArm.currentPosition()));
   }
 }
 
