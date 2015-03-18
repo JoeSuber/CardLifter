@@ -45,6 +45,7 @@ const int cardThickness = 52;               // calculated 141 steps to lift a ca
 const int proxSense2 = 620;                 // threshold for OPB606A showing a card riding on fan housing
 const int proxSense3 = 900;                 // below this a passenger card is still engaged
 const int liftSenseTop = 740;               // above threshold nothing is close to face of OPB606A
+const int HOLDms = 800;                     // this long to get to extremes of servo travel, then relax
 const long int hoverArmPos = 15;            // pick up postion after zeroing against armLimit
 const long int firstArmPos = 120;           // experimentally determined drop-off position
 const long int secondArmPos = 220;          // 2nd drop (less frequent) and max Arm travel
@@ -76,7 +77,7 @@ AccelStepper stepperArm(AccelStepper::DRIVER, PINST1_ST, PINST1_DIR);
 AccelStepper stepperLift(AccelStepper::DRIVER, PINST2_ST, PINST2_DIR);
 
 const long int liftUpToTop = -200000;     // arbitrary rise until limit switch hit.
-long int liftBackOff = 500;              // back off the switch; zero is limit-switch position
+long int liftBackOff = 500;              // steps to back off the switch; zero is limit-switch position
 
 Servo myserv;
 
@@ -203,7 +204,7 @@ void loop() {
     stepperArm.run(); 
      
     // first character sent switches us into LOADED mode
-    // 97="a", 98="b", 99="c", 100="d"
+    // 97="a", 98="b", 99="c", 100="d", 120="x"
     if (Serial.available() > 0) {        
       inputString = String(Serial.read());
       if (!LOADED) {
@@ -252,7 +253,7 @@ void fanDown(byte suck, byte drop, long int dropZone) {
   currentServoPos = myserv.read();
   
   // after allowing time for travel, check stress levels...
-  if (((currentTime - timeStart) > 900)) {
+  if (((currentTime - timeStart) > HOLDms)) {
     if (currentServoPos == (drop + extraServoBump)) {
         restServoPos = drop;
         stressedServo = true;
@@ -277,7 +278,7 @@ void fanDown(byte suck, byte drop, long int dropZone) {
               myserv.write(suck - extraServoBump);
               timeStart = currentTime;
    }
-  else if (stressedServo && ((currentTime - timeStart) > 900)) {
+  else if (stressedServo && ((currentTime - timeStart) > HOLDms)) {
     myserv.write(restServoPos);
     if (DEBUG)
       Serial.println("go to resting spot: " + String(restServoPos));
