@@ -192,7 +192,7 @@ void loop() {
       oldServoPos = myserv.read();
     }
         
-    if (UPDATE) {
+    if (UPDATE && DEBUG) {
         Serial.print("Liftpos: " + String(stepperLift.currentPosition()) + " Armpos: " + String(stepperArm.currentPosition()));
         Serial.println("  A0: " + String(newAnalog1) + "  A1: " + String(newAnalog2) + " srvo: " + String(oldServoPos) + " tm:" + String(millis()));
         UPDATE = false;
